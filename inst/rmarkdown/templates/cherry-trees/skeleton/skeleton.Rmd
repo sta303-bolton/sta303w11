@@ -1,0 +1,175 @@
+---
+title: "GAM case study: Cherry trees"
+subtitle: 'STA303 Winter 2021'
+output: pdf_document
+---
+
+This example comes from Wood (2016), full reference is the syllabus.
+
+## Set up
+
+"This data set provides measurements of the diameter, height and volume of timber in 31 felled black cherry trees. Note that the diameter (in inches) is erroneously labelled Girth in the data. It is measured at 4 ft 6 in above the ground." -[R documentation](https://stat.ethz.ch/R-manual/R-patched/library/datasets/html/trees.html)
+
+```{r, echo=TRUE}
+data('trees', package='datasets')
+```
+
+```{r}
+glimpse(trees)
+```
+
+
+## Exploratory visualizations
+
+```{r, echo=FALSE, fig.height = 1.5, fig.width = 7}
+trees %>% 
+  rename(Diameter = "Girth") %>% 
+  ggplot(aes(Diameter, Volume, color=Height)) +
+  geom_point() + 
+  theme_minimal() +
+  ggtitle("Diameter and volume for cherry trees, coloured by height")
+
+
+trees %>% 
+  rename(Diameter = "Girth") %>% 
+  ggplot(aes(Height, Volume, color=Diameter)) +
+  geom_point() + theme_minimal() +
+    ggtitle("Height and volume for cherry trees, coloured by diameter")
+```
+
+
+## Aside: Gamma generalized linear models
+
+We've met generalized linear models with Poisson and Logistic responses. Another fairly popular distibution for GLMs is Gamma. It's appropriate for when your response is > 0 and can handle right skew well. Log is _not_ the __canonical link__, but is a popular choice.
+
+```{r, echo = FALSE}
+reps <- 50000
+nexps <- 5
+rate <- 0.1
+set.seed(0)
+x1 <- replicate(reps, sum(rexp(n=nexps, rate=rate)))
+
+colors <- c("shape = 5, rate = 0.1" = "blue", 
+            "shape = 2, rate = 0.1" = "red", 
+            "shape = 5, rate = 1" = "orange", 
+            "shape = 20, rate = 1" = "green")
+
+
+ggplot(data.frame(x1), aes(x1)) + 
+    scale_color_manual(values = colors) +
+stat_function(fun=function(x)dgamma(x, shape=5, scale=1/0.1), aes(color="shape = 5, rate = 0.1"), size=1) +
+  stat_function(fun=function(x)dgamma(x, shape=2, scale=1/0.1), aes(color="shape = 2, rate = 0.1"), size=1) +
+    stat_function(fun=function(x)dgamma(x, shape=5, scale=1), aes(color="shape = 5, rate = 1"), size=1) +
+  stat_function(fun=function(x)dgamma(x, shape=20, scale=1), aes(color="shape = 20, rate = 1"), size=1) +
+  theme_minimal() +
+      labs(x = "x",
+         y = "y",
+         color = "Parameters",
+         title = "Example Gamma pdf") 
+
+```
+
+
+## Fitting the model
+
+```{r echo=TRUE}
+library(MASS)
+library(mgcv)
+library(gratia) # ggplot style 
+
+data(trees)
+
+ct1<-gam(Volume~s(Height)+s(Girth), family=Gamma(link="log"),data=trees, select=TRUE, method="REML")
+summary(ct1)
+```
+
+This fits the model:
+
+$$\text{log}(\mathbb{E}[\text{Volume}_i]) = f_1(\text{Height}_i) + f_2(\text{Girth}_i)$$
+
+$$\text{Volume}_i \sim \text{Gamma}(\alpha, \beta)$$ 
+and `coef(ct1)` shows us the $\beta_{jk}$. Note: These $\beta$ aren't interpretable in context.
+
+```{r, ech=FALSE}
+coef(ct1)
+```
+
+## Visualisation
+
+```{r}
+ct2 <- gam(Volume ~ s(Height) + s(Girth), 
+           data = trees, select=TRUE,
+           family=Gamma(link="log"), method="REML")
+summary(ct2)
+```
+
+## Diagnostics
+
+```{r}
+gam.check(ct2)
+gratia::appraise(ct2)
+```
+
+```{r}
+par(mfrow=c(1,2))
+vis.gam(ct2, view=c("Girth", "Height"))
+vis.gam(ct2, view=c("Height", "Girth"))
+```
+
+
+## Basis dimension
+
+```{r cherryTreeGam, echo=TRUE, tidy=FALSE}
+res1 <-gam(Volume~s(Girth, k=3), 
+           family=Gamma(link="log"), data=trees)
+res2 <-gam(Volume~s(Girth,k=15),
+           family=Gamma(link="log"), data=trees)
+res3 <-gam(Volume~s(Girth, k=25),
+           family=Gamma(link="log"), data=trees)
+
+par(mfrow=c(1, 3))
+plot(res1)
+plot(res2)
+plot(res3)
+```
+
+$\hat f$ is smooth, don't need many basis functions
+
+## Testing
+
+If you want to perform LR tests, you should probably use ML as the smoothing selection method and not use `select=TRUE` as the approximation used can be very bad for smooths with penalties on their null spaces. This treats our smooths as random effects.
+
+```{r}
+ct1_ml <- gam(Volume~s(Height, Girth, k=29), 
+             family=Gamma(link="log"),
+             data=trees, method="ML")
+ct2_ml <- gam(Volume ~ s(Height) + Girth,
+             family=Gamma(link="log"),
+             data = trees, method = "ML")
+ct3_ml <- gam(Volume ~ s(Height), 
+             family=Gamma(link="log"),
+             data = trees, method = "ML")
+
+lmtest::lrtest(ct1_ml, ct2_ml) 
+lmtest::lrtest(ct2_ml, ct3_ml)
+```
+
+
+## Predictions
+
+`predict.gam` allows us to make predictions from our fitted models in the way we're used to from `predict`.
+
+```{r, echo=TRUE}
+trees$pred <- predict(ct2, type="response")
+
+trees %>% 
+  ggplot(aes(Volume, pred)) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1) +
+  theme_minimal() +
+  labs(x = "Observed volume", y = "Predicted volume")
+
+```
+
+
+

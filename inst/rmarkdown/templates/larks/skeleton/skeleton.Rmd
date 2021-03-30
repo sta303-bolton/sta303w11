@@ -1,0 +1,118 @@
+---
+title: "GAM case study: Portugese larks"
+subtitle: 'STA303 Winter 2021'
+output: pdf_document
+---
+
+This example based on a talk by [Gavin Simpson](https://github.com/gavinsimpson).
+
+## Get the data
+
+The `gamair` package is the package for the GAM book by Wood (2016), see the syllabus for full reference.
+
+```{r birds-1, message = FALSE}
+library(gamair) # you may need to install this
+library(tidyverse)
+library(ggthemes)
+library(mgcv)
+data(bird)
+glimpse(bird)
+```
+
+We're going to transform things a little to make them easier to use. You can find the description of each variable by running `?bird` in your console. It will open the help file. We want to scale the location to be in 1000s of kilimeters.
+
+```{r}
+bird <- transform(bird,
+            crestlark = factor(crestlark),
+            linnet = factor(linnet),
+            e = x / 1000,
+            n = y / 1000)
+head(bird)
+```
+
+### Plot it!
+```{r birds-2}
+ggplot(bird, aes(x = e, y = n, colour = crestlark)) + 
+  geom_point(size = 0.5) + 
+  coord_fixed() + 
+  scale_colour_discrete(na.value = '#bbbbbb33') + 
+  labs(x = NULL, y = NULL) +
+  theme_map() +
+  theme(legend.position = "bottom")
+```
+
+
+## Binomial GAM
+
+
+```{r birds-gam-1}
+crest <- gam(crestlark ~ s(e, n, k = 100),
+             data = bird,
+             family = binomial,
+             method = 'REML')
+```
+
+$s(e, n)$ indicated by `s(e, n)` in the formula. Our default is thin plate splines, which is a pretty good default.
+
+Recall that `k` sets size of basis dimension; upper limit on EDF.
+
+Smoothness parameters estimated via REML.
+
+```{r birds-gam-2}
+summary(crest)
+```
+
+
+Model checking with binary data is a pain with binomial models because our residuals look weird!
+
+Alternatively we can aggregate data at the `QUADRICULA` level & fit a binomial _count_ model.
+
+```{r convert-larks, echo = TRUE}
+## convert back to numeric
+bird <- transform(bird,
+                  crestlark = as.numeric(as.character(crestlark)),
+                  linnet = as.numeric(as.character(linnet)))
+## some variables to help aggregation
+bird <- transform(bird, tet.n = rep(1, nrow(bird)),
+                  N = rep(1, nrow(bird)), stringsAsFactors = FALSE)
+## set to NA if not surveyed
+bird$N[is.na(as.vector(bird$crestlark))] <- NA
+## aggregate
+bird2 <- aggregate(data.matrix(bird), by = list(bird$QUADRICULA),
+                   FUN = sum, na.rm = TRUE)
+## scale by Quads aggregated
+bird2 <- transform(bird2, e = e / tet.n, n = n / tet.n)
+## fit binomial GAM
+crest2 <- gam(cbind(crestlark, N - crestlark) ~ s(e, n, k = 100),
+              data = bird2, family = binomial, method = 'REML')
+```
+
+
+## Model checking
+
+```{r crest-3, echo = TRUE}
+crest3 <- gam(cbind(crestlark, N - crestlark) ~
+                  s(e, n, k = 100),
+              data = bird2, family = quasibinomial,
+              method = 'REML')
+```
+
+
+Model residuals don't look too bad. The bands of points we see are due to wroking with integers. Some overdispersion, $\phi$ = `r round(crest3$scale,2)`$
+
+
+```{r gam-check-aggregated-lark}
+ggplot(data.frame(Fitted = fitted(crest2),
+                  Resid = resid(crest2)),
+       aes(Fitted, Resid)) + 
+  geom_point() +
+  theme_minimal()
+```
+
+
+```{r}
+library(gratia)
+appraise(crest3)
+gam.check(crest3)
+```
+
