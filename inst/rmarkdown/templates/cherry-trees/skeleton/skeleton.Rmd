@@ -96,26 +96,18 @@ and `coef(ct1)` shows us the $\beta_{jk}$. Note: These $\beta$ aren't interpreta
 coef(ct1)
 ```
 
-## Visualisation
-
-```{r}
-ct2 <- gam(Volume ~ s(Height) + s(Girth), 
-           data = trees, select=TRUE,
-           family=Gamma(link="log"), method="REML")
-summary(ct2)
-```
 
 ## Diagnostics
 
 ```{r}
-gam.check(ct2)
-gratia::appraise(ct2)
+gam.check(ct1)
+gratia::appraise(ct1)
 ```
 
 ```{r}
 par(mfrow=c(1,2))
-vis.gam(ct2, view=c("Girth", "Height"))
-vis.gam(ct2, view=c("Height", "Girth"))
+vis.gam(ct1, view=c("Girth", "Height"))
+vis.gam(ct1, view=c("Height", "Girth"))
 ```
 
 
@@ -163,7 +155,7 @@ draw(ct1_ml)
 `predict.gam` allows us to make predictions from our fitted models in the way we're used to from `predict`.
 
 ```{r, echo=TRUE}
-trees$pred <- predict(ct2, type="response")
+trees$pred <- predict(ct1, type="response")
 
 trees %>% 
   ggplot(aes(Volume, pred)) +
