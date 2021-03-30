@@ -10,7 +10,9 @@ This example comes from Wood (2016), full reference is the syllabus.
 
 "This data set provides measurements of the diameter, height and volume of timber in 31 felled black cherry trees. Note that the diameter (in inches) is erroneously labelled Girth in the data. It is measured at 4 ft 6 in above the ground." -[R documentation](https://stat.ethz.ch/R-manual/R-patched/library/datasets/html/trees.html)
 
-```{r, echo=TRUE}
+```{r, message = FALSE}
+library(ggplot2)
+library(dplyr)
 data('trees', package='datasets')
 ```
 
@@ -21,7 +23,7 @@ head(trees)
 
 ## Exploratory visualizations
 
-```{r, echo=FALSE, fig.height = 1.5, fig.width = 7}
+```{r, echo=FALSE}
 trees %>% 
   rename(Diameter = "Girth") %>% 
   ggplot(aes(Diameter, Volume, color=Height)) +
