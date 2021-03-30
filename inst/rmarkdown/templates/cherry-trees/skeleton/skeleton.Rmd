@@ -142,18 +142,19 @@ $\hat f$ is smooth, don't need many basis functions
 If you want to perform LR tests, you should probably use ML as the smoothing selection method and not use `select=TRUE` as the approximation used can be very bad for smooths with penalties on their null spaces. This treats our smooths as random effects.
 
 ```{r}
-ct1_ml <- gam(Volume~s(Height, Girth, k=29), 
-             family=Gamma(link="log"),
-             data=trees, method="ML")
-ct2_ml <- gam(Volume ~ s(Height) + Girth,
-             family=Gamma(link="log"),
-             data = trees, method = "ML")
-ct3_ml <- gam(Volume ~ s(Height), 
-             family=Gamma(link="log"),
-             data = trees, method = "ML")
+ct1_ml <- gam(Volume~s(Height) + s(Girth), family=Gamma(link="log"), data=trees, method="ML")
+ct2_ml <- gam(Volume ~ Height + s(Girth),  family=Gamma(link="log"),  data = trees, method = "ML")
+ct3_ml <- gam(Volume ~ s(Girth), family=Gamma(link="log"), data = trees, method = "ML")
 
 lmtest::lrtest(ct1_ml, ct2_ml) 
 lmtest::lrtest(ct2_ml, ct3_ml)
+
+```
+
+We can use the `draw()` function to make comments about these variables.
+
+```{r}
+draw(ct1_ml)
 ```
 
 
