@@ -15,7 +15,7 @@ data('trees', package='datasets')
 ```
 
 ```{r}
-glimpse(trees)
+head(trees)
 ```
 
 

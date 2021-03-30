@@ -6,7 +6,8 @@ Author: Liza Bolton
 Maintainer: Liza Bolton <liza.bolton@utoronto.ca>
 Description: Contains code/templates for Week 11 case studies.
 License: GPL-3
-Depends: tidyverse,
+Depends: ggplot2,
+  dplyr,
   mgcv,
   gamair,
   MASS,

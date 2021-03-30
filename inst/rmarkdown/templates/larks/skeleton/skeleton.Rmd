@@ -12,7 +12,8 @@ The `gamair` package is the package for the GAM book by Wood (2016), see the syl
 
 ```{r birds-1, message = FALSE}
 library(gamair) # you may need to install this
-library(tidyverse)
+library(ggplot2)
+library(dplyr)
 library(ggthemes)
 library(mgcv)
 data(bird)
